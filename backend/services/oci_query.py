@@ -225,11 +225,20 @@ def _daily_stats_range(index: str | None, start: str | datetime, end: str | date
 
 
 def _parse_host(h: str) -> str:
-    """Extract hostname from JSON-encoded host strings like {"ip":"...","name":"QTGV01"}."""
-    if h and h.startswith('{'):
+    """Extract hostname from JSON-encoded host strings: objects or arrays."""
+    if not h:
+        return h
+    if h.startswith('{'):
         try:
             d = json.loads(h)
             return d.get('name') or d.get('ip') or h
+        except Exception:
+            pass
+    if h.startswith('['):
+        try:
+            lst = json.loads(h)
+            if lst and isinstance(lst, list):
+                return str(lst[0])
         except Exception:
             pass
     return h
@@ -950,13 +959,16 @@ def browse_logs_oci(
             # Describe available columns to avoid Binder Error on absent columns
             avail = {r[0] for r in conn.execute(f"DESCRIBE SELECT * FROM {src} LIMIT 0").fetchall()}
             sel = ", ".join(f"{c}" if c in avail else f"NULL AS {c}" for c in _COLS)
-            # Single scan: window COUNT(*) OVER () + data in one pass
-            raw = conn.execute(
-                f"SELECT count(*) OVER () AS _total, {sel} "
-                f"FROM {src} WHERE {where} ORDER BY ts DESC LIMIT 5000"
+            # Strip event_id condition from WHERE if this parquet set lacks the column
+            safe_where = where
+            if "event_id" not in avail:
+                import re as _re
+                safe_where = _re.sub(r"\s*OR\s+event_id\s*=\s*\d+", "", safe_where)
+            # Two queries: COUNT is memory-efficient (no row buffering)
+            cnt = conn.execute(f"SELECT count(*) FROM {src} WHERE {safe_where}").fetchone()[0]
+            rows = conn.execute(
+                f"SELECT {sel} FROM {src} WHERE {safe_where} ORDER BY ts DESC LIMIT 5000"
             ).fetchall()
-            cnt = raw[0][0] if raw else 0
-            rows = [r[1:] for r in raw]  # strip _total prefix
             return cnt, [(idx, r) for r in rows]
         except Exception as _exc:
             import logging as _log

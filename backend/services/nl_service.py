@@ -9,9 +9,13 @@ import re
 import time
 from typing import Any
 
+import logging
+
 import httpx
 
 from backend.config import get_settings
+
+_log = logging.getLogger(__name__)
 
 _models_cache: list[dict] = []
 _models_loaded_at: float = 0.0
@@ -205,6 +209,12 @@ def _sanitize_filters(raw_filters: dict) -> dict[str, Any]:
             except ValueError:
                 pass
 
+    # If only start or only end given, fill in the other for the same day
+    if "start" in clean and "end" not in clean:
+        clean["end"] = clean["start"][:10] + "T23:59:59"
+    elif "end" in clean and "start" not in clean:
+        clean["start"] = clean["end"][:10] + "T00:00:00"
+
     return clean
 
 
@@ -276,6 +286,7 @@ async def nl_to_filters(query: str) -> dict[str, Any]:
         try:
             content = await _call_openrouter(settings.openrouter_api_key, model, query, today_str)
             # Successful call — update probe cache to this model
+            _log.warning("nl-query model=%s raw=%s", model, content[:300])
             async with _probe_lock:
                 _probed_model = model
                 _probed_at = time.monotonic()
