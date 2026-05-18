@@ -278,7 +278,7 @@ export function LogBrowser() {
     setPage(1)
   }, [searchInput, domainInput])
 
-  const applyNLResult = useCallback((filters: Partial<BrowseLogsParams>) => {
+  const applyNLResult = useCallback((filters: Partial<BrowseLogsParams & { start?: string; end?: string }>) => {
     if (filters.index)            setIndex(filters.index)
     if (filters.search)           { setSearch(filters.search); setSearchInput(filters.search) }
     if (filters.threat_score_min != null) setThreatScoreMin(filters.threat_score_min)
@@ -287,6 +287,11 @@ export function LogBrowser() {
     if (filters.app_name)         setAppName(filters.app_name)
     if (filters.src_country)      setSrcCountry(filters.src_country)
     if (filters.domain)           { setDomain(filters.domain); setDomainInput(filters.domain) }
+    if (filters.start || filters.end) {
+      setRange('custom')
+      if (filters.start) setCustomStart(filters.start.slice(0, 16))
+      if (filters.end)   setCustomEnd(filters.end.slice(0, 16))
+    }
     setPage(1)
   }, [])
 

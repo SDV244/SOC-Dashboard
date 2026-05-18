@@ -21,6 +21,8 @@ const FILTER_LABELS: Record<string, (v: unknown) => string> = {
   app_name:        v => `App: ${v}`,
   src_country:     v => `País: ${v}`,
   domain:          v => `Dominio: ${v}`,
+  start:           v => `Desde: ${String(v).slice(0, 10)}`,
+  end:             v => `Hasta: ${String(v).slice(0, 10)}`,
 }
 
 export function NLSearchBar({ onApply }: Props) {

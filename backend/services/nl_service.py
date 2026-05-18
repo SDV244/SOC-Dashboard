@@ -23,36 +23,69 @@ _probed_at: float = 0.0
 _probe_lock = asyncio.Lock()
 _PROBE_TTL = 1800.0  # re-probe every 30 min
 
-SYSTEM_PROMPT = """Eres un asistente de búsqueda de logs de seguridad (SOC).
-El usuario describe en lenguaje natural lo que quiere buscar en los logs.
-Tu tarea es devolver únicamente un objeto JSON con los filtros a aplicar.
+def _build_system_prompt(today: str) -> str:
+    return (
+        "Eres un asistente de búsqueda de logs de seguridad (SOC).
+"
+        "El usuario describe en lenguaje natural lo que quiere buscar en los logs.
+"
+        "Tu tarea es devolver únicamente un objeto JSON con los filtros a aplicar.
+"
+        f"Hoy es {today}.
 
-Filtros disponibles (todos opcionales, solo incluir los relevantes):
-- "index": índice a consultar. Valores válidos: "adr","ade","syslog","wineventlog","users","assets","maltrace","scan","ser","audit","cloudtrail"
-- "search": texto libre (hostname, IP, nombre de evento, proceso)
-- "threat_score_min": entero 0-100, puntuación mínima de amenaza
-- "is_dga": "yes" para detectar Domain Generation Algorithm (malware DNS)
-- "is_tunneling": true para detectar exfiltración por túnel DNS/HTTP
-- "app_name": nombre de aplicación de red (dns, http, https, smtp, ssh, rdp, smb, ftp)
-- "src_country": código ISO-2 del país origen (ej: "CN","RU","US","VE","IR")
-- "domain": dominio o fragmento de dominio a buscar
+"
+        "Filtros disponibles (todos opcionales, solo incluir los relevantes):
+"
+        "- \"index\": índice a consultar. Valores válidos: \"adr\",\"ade\",\"syslog\","
+        "\"wineventlog\",\"users\",\"assets\",\"maltrace\",\"scan\",\"ser\",\"audit\",\"cloudtrail\"
+"
+        "- \"search\": texto libre (hostname, IP, nombre de evento, proceso)
+"
+        "- \"threat_score_min\": entero 0-100, puntuación mínima de amenaza
+"
+        "- \"is_dga\": \"yes\" para detectar Domain Generation Algorithm (malware DNS)
+"
+        "- \"is_tunneling\": true para detectar exfiltración por túnel DNS/HTTP
+"
+        "- \"app_name\": nombre de aplicación de red (dns, http, https, smtp, ssh, rdp, smb, ftp)
+"
+        "- \"src_country\": código ISO-2 del país origen (ej: \"CN\",\"RU\",\"US\",\"VE\",\"IR\")
+"
+        "- \"domain\": dominio o fragmento de dominio a buscar
+"
+        "- \"start\": fecha inicio YYYY-MM-DD (si el usuario menciona una fecha o período)
+"
+        "- \"end\": fecha fin YYYY-MM-DD (para un solo día, igual a start)
 
-Responde SOLO con el JSON, sin markdown ni explicaciones adicionales.
+"
+        "Responde SOLO con el JSON, sin markdown ni explicaciones adicionales.
 
-Ejemplos:
-Usuario: "eventos DGA de China con score alto"
-Respuesta: {"is_dga":"yes","src_country":"CN","threat_score_min":50}
+"
+        "Ejemplos:
+"
+        "Usuario: \"eventos DGA de China con score alto\"
+"
+        "Respuesta: {\"is_dga\":\"yes\",\"src_country\":\"CN\",\"threat_score_min\":50}
 
-Usuario: "túneles DNS en la última semana"
-Respuesta: {"index":"adr","is_tunneling":true,"app_name":"dns"}
+"
+        "Usuario: \"túneles DNS en la última semana\"
+"
+        "Respuesta: {\"index\":\"adr\",\"is_tunneling\":true,\"app_name\":\"dns\"}
 
-Usuario: "inicios de sesión fallidos en Windows"
-Respuesta: {"index":"wineventlog","search":"4625"}
+"
+        "Usuario: \"inicios de sesión fallidos en Windows el 10 de mayo de 2026\"
+"
+        "Respuesta: {\"index\":\"wineventlog\",\"search\":\"4625\","
+        "\"start\":\"2026-05-10\",\"end\":\"2026-05-10\"}
 
-Usuario: "actividad del usuario jdoe"
-Respuesta: {"search":"jdoe"}
+"
+        "Usuario: \"actividad del usuario jdoe\"
+"
+        "Respuesta: {\"search\":\"jdoe\"}
 
-Si no puedes extraer ningún filtro útil, devuelve: {}"""
+"
+        "Si no puedes extraer ningún filtro útil, devuelve: {}"
+    )
 
 # Ordered by preference: largest/most capable models first for accurate JSON extraction
 _PREFERRED_MODELS = [
@@ -186,10 +219,21 @@ def _sanitize_filters(raw_filters: dict) -> dict[str, Any]:
     if "domain" in raw_filters and isinstance(raw_filters["domain"], str):
         clean["domain"] = raw_filters["domain"][:200]
 
+    # Date range extracted from NL (YYYY-MM-DD -> full ISO timestamps)
+    from datetime import date as _date
+    for key, suffix in (("start", "T00:00:00"), ("end", "T23:59:59")):
+        if key in raw_filters and isinstance(raw_filters[key], str):
+            raw_d = raw_filters[key][:10]
+            try:
+                _date.fromisoformat(raw_d)
+                clean[key] = raw_d + suffix
+            except ValueError:
+                pass
+
     return clean
 
 
-async def _call_openrouter(api_key: str, model: str, query: str) -> str:
+async def _call_openrouter(api_key: str, model: str, query: str, today: str = "") -> str:
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
@@ -201,7 +245,7 @@ async def _call_openrouter(api_key: str, model: str, query: str) -> str:
             json={
                 "model": model,
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": _build_system_prompt(today)},
                     {"role": "user", "content": query[:500]},
                 ],
                 "temperature": 0.1,
@@ -223,10 +267,14 @@ async def nl_to_filters(query: str) -> dict[str, Any]:
     if not settings.openrouter_api_key:
         return {}
 
+    # Compute today for date-aware prompts
+    from datetime import date as _today_date
+    today_str = _today_date.today().isoformat()
+
     # If a model is explicitly configured, use it directly
     if settings.nl_model:
         try:
-            content = await _call_openrouter(settings.openrouter_api_key, settings.nl_model, query)
+            content = await _call_openrouter(settings.openrouter_api_key, settings.nl_model, query, today_str)
             json_match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
             if json_match:
                 return _sanitize_filters(json.loads(json_match.group()))
@@ -251,7 +299,7 @@ async def nl_to_filters(query: str) -> dict[str, Any]:
 
     for model in candidates:
         try:
-            content = await _call_openrouter(settings.openrouter_api_key, model, query)
+            content = await _call_openrouter(settings.openrouter_api_key, model, query, today_str)
             # Successful call — update probe cache to this model
             async with _probe_lock:
                 _probed_model = model
