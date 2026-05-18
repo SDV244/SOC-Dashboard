@@ -328,7 +328,7 @@ export function LogBrowser() {
         </div>
         <div className="flex items-center gap-3">
           <GlossaryTooltip />
-          <TimeRangeSelector value={range} onChange={r => { setRange(r); setPage(1) }} customStart={customStart} customEnd={customEnd} onCustomChange={(s, e) => { setCustomStart(s); setCustomEnd(e); setPage(1) }} />
+          <TimeRangeSelector value={range} onChange={r => { setRange(r); setPage(1) }} customStart={customStart} customEnd={customEnd} onCustomChange={(s, e) => { setRange("custom"); setCustomStart(s); setCustomEnd(e); setPage(1) }} />
           <a
             href={api.exportUrl({ index: index || undefined, host: host || undefined, search: search || undefined, start, end })}
             download="soc_logs.csv"
