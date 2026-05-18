@@ -24,80 +24,43 @@ _probe_lock = asyncio.Lock()
 _PROBE_TTL = 1800.0  # re-probe every 30 min
 
 def _build_system_prompt(today: str) -> str:
-    return (
-        "Eres un asistente de búsqueda de logs de seguridad (SOC).
-"
-        "El usuario describe en lenguaje natural lo que quiere buscar en los logs.
-"
-        "Tu tarea es devolver únicamente un objeto JSON con los filtros a aplicar.
-"
-        f"Hoy es {today}.
+    return f"""Eres un asistente de búsqueda de logs de seguridad (SOC).
+El usuario describe en lenguaje natural lo que quiere buscar en los logs.
+Tu tarea es devolver únicamente un objeto JSON con los filtros a aplicar.
+Hoy es {today}.
 
-"
-        "Filtros disponibles (todos opcionales, solo incluir los relevantes):
-"
-        "- \"index\": índice a consultar. Valores válidos: \"adr\",\"ade\",\"syslog\","
-        "\"wineventlog\",\"users\",\"assets\",\"maltrace\",\"scan\",\"ser\",\"audit\",\"cloudtrail\"
-"
-        "- \"search\": texto libre (hostname, IP, nombre de evento, proceso)
-"
-        "- \"threat_score_min\": entero 0-100, puntuación mínima de amenaza
-"
-        "- \"is_dga\": \"yes\" para detectar Domain Generation Algorithm (malware DNS)
-"
-        "- \"is_tunneling\": true para detectar exfiltración por túnel DNS/HTTP
-"
-        "- \"app_name\": nombre de aplicación de red (dns, http, https, smtp, ssh, rdp, smb, ftp)
-"
-        "- \"src_country\": código ISO-2 del país origen (ej: \"CN\",\"RU\",\"US\",\"VE\",\"IR\")
-"
-        "- \"domain\": dominio o fragmento de dominio a buscar
-"
-        "- \"start\": fecha inicio YYYY-MM-DD (si el usuario menciona una fecha o período)
-"
-        "- \"end\": fecha fin YYYY-MM-DD (para un solo día, igual a start)
+Filtros disponibles (todos opcionales, solo incluir los relevantes):
+- "index": índice. Valores válidos: "adr","ade","syslog","wineventlog","users","assets","maltrace","scan","ser","audit","cloudtrail"
+- "search": texto libre (hostname, IP, nombre de evento, proceso)
+- "threat_score_min": entero 0-100, puntuación mínima de amenaza
+- "is_dga": "yes" para detectar Domain Generation Algorithm (malware DNS)
+- "is_tunneling": true para detectar exfiltración por túnel DNS/HTTP
+- "app_name": nombre de aplicación de red (dns, http, https, smtp, ssh, rdp, smb, ftp)
+- "src_country": código ISO-2 del país origen (ej: "CN","RU","US","VE","IR")
+- "domain": dominio o fragmento de dominio a buscar
+- "start": fecha inicio YYYY-MM-DD (si el usuario menciona una fecha o período)
+- "end": fecha fin YYYY-MM-DD (para un solo día, igual a start)
 
-"
-        "Responde SOLO con el JSON, sin markdown ni explicaciones adicionales.
+Responde SOLO con el JSON, sin markdown ni explicaciones adicionales.
 
-"
-        "Ejemplos:
-"
-        "Usuario: \"eventos DGA de China con score alto\"
-"
-        "Respuesta: {\"is_dga\":\"yes\",\"src_country\":\"CN\",\"threat_score_min\":50}
+Ejemplos:
+Usuario: "eventos DGA de China con score alto"
+Respuesta: {{"is_dga":"yes","src_country":"CN","threat_score_min":50}}
 
-"
-        "Usuario: \"túneles DNS en la última semana\"
-"
-        "Respuesta: {\"index\":\"adr\",\"is_tunneling\":true,\"app_name\":\"dns\"}
+Usuario: "túneles DNS en la última semana"
+Respuesta: {{"index":"adr","is_tunneling":true,"app_name":"dns"}}
 
-"
-        "Usuario: \"inicios de sesión fallidos en Windows el 10 de mayo de 2026\"
-"
-        "Respuesta: {\"index\":\"wineventlog\",\"search\":\"4625\","
-        "\"start\":\"2026-05-10\",\"end\":\"2026-05-10\"}
+Usuario: "inicios de sesión fallidos en Windows el 10 de mayo de 2026"
+Respuesta: {{"index":"wineventlog","search":"4625","start":"2026-05-10","end":"2026-05-10"}}
 
-"
-        "Usuario: \"actividad del usuario jdoe\"
-"
-        "Respuesta: {\"search\":\"jdoe\"}
+Usuario: "logins fallidos de windows de el 10 de mayo del 2026"
+Respuesta: {{"index":"wineventlog","search":"4625","start":"2026-05-10","end":"2026-05-10"}}
 
-"
-        "Si no puedes extraer ningún filtro útil, devuelve: {}"
-    )
+Usuario: "actividad del usuario jdoe"
+Respuesta: {{"search":"jdoe"}}
 
-# Ordered by preference: largest/most capable models first for accurate JSON extraction
-_PREFERRED_MODELS = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "openai/gpt-oss-120b:free",
-    "google/gemma-4-31b-it:free",
-    "nousresearch/hermes-3-llama-3.1-405b:free",
-    "openai/gpt-oss-20b:free",
-    "google/gemma-4-26b-a4b-it:free",
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "liquid/lfm-2.5-1.2b-instruct:free",
-]
+Si no puedes extraer ningún filtro útil, devuelve: {{}}"""
+
 
 _VALID_INDEXES = {"adr","ade","syslog","wineventlog","users","assets","maltrace","scan","ser","audit","cloudtrail"}
 _VALID_DGA = {"yes", "no"}
