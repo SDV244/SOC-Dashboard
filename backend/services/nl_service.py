@@ -62,6 +62,18 @@ Respuesta: {{"search":"jdoe"}}
 Si no puedes extraer ningún filtro útil, devuelve: {{}}"""
 
 
+# Ordered by preference: largest/most capable models first for accurate JSON extraction
+_PREFERRED_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "openai/gpt-oss-120b:free",
+    "google/gemma-4-31b-it:free",
+    "nousresearch/hermes-3-llama-3.1-405b:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
+]
+
 _VALID_INDEXES = {"adr","ade","syslog","wineventlog","users","assets","maltrace","scan","ser","audit","cloudtrail"}
 _VALID_DGA = {"yes", "no"}
 _VALID_APPS = {"dns","http","https","smtp","ssh","rdp","smb","ftp","unknown"}
