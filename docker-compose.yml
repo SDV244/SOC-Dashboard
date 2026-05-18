@@ -1,0 +1,23 @@
+services:
+  soc:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/data/soc.duckdb
+      - LOCAL_SYNC_PATH=/data/logs
+    volumes:
+      - soc_data:/data
+      - /data/parquet:/data/parquet
+      - /home/opc/soc-dashboard/frontend/dist:/app/frontend/dist
+      - /home/opc/soc-dashboard/backend:/app/backend
+      - /home/opc/soc-dashboard/config.yaml:/app/config.yaml
+      - /home/opc/soc-dashboard/ingest_adr_v3.sh:/app/ingest_adr_v3.sh
+      - /home/opc/soc-dashboard/convert_adr_day.py:/app/convert_adr_day.py
+    command: ["/app/.venv/bin/python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    restart: unless-stopped
+
+volumes:
+  soc_data:

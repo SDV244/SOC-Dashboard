@@ -1,0 +1,15 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+frontend/node_modules
+frontend/dist
+data/
+*.duckdb
+*.duckdb.wal
+duckdb_tmp/
+.env
+aws.zip
+tests/

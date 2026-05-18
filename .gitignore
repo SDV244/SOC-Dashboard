@@ -1,0 +1,36 @@
+# Credentials - NEVER commit
+.env
+config.yaml
+ssh-key-*.key
+ssh-key-*.key.pub
+aws.zip
+
+# Build output
+frontend/dist/
+frontend/node_modules/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# DuckDB data
+*.duckdb
+*.duckdb.wal
+duckdb_tmp/
+data/
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+
+# Misc leftover files
+cd
+scp
+ingest_mayo_catchup.sh
+
+# pnpm cache
+frontend/.pnpm-store/
+frontend/node_modules/

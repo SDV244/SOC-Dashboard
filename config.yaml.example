@@ -1,0 +1,20 @@
+s3_endpoint: "https://<namespace>.compat.objectstorage.<region>.oci.customer-oci.com"
+s3_bucket: "<region>.stellarcyber.cloud-datasink-bucket"
+s3_region: "<region>"
+org_id: "<your-org-id>"
+tenant_id: "<your-tenant-id>"
+local_sync_path: "./data"
+db_path: /data/soc.duckdb
+indexes:
+  - adr
+  - syslog
+  - wineventlog
+  - users
+  - assets
+  - maltrace
+  - cloudtrail
+  - scan
+  - ser
+  - ade
+  - audit
+parquet_base: /data/parquet
