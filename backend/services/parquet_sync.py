@@ -38,7 +38,7 @@ def parquet_dir(index: str, year: int, month: int) -> str:
 
 def parquet_path(index: str, year: int, month: int) -> str:
     """Returns glob pattern to scan all daily Parquet files for a month."""
-    return parquet_dir(index, year, month) + "/*.parquet"
+    return parquet_dir(index, year, month) + "/day=*.parquet"
 
 
 def src_glob(index: str, year: int, month: int) -> str:
