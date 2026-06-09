@@ -29,7 +29,12 @@ export function TimeRangeSelector({ value, onChange, customStart, customEnd, onC
     staleTime: 60_000,
   })
 
-  const months = monthsQ.data ?? []
+  // Exclude current month and future (data always incomplete)
+  const _today = new Date()
+  const months = (monthsQ.data ?? []).filter(({ year, month }) =>
+    year < _today.getFullYear() ||
+    (year === _today.getFullYear() && month < _today.getMonth() + 1)
+  )
 
   // Group by year
   const byYear = months.reduce<Record<number, number[]>>((acc, { year, month }) => {

@@ -156,10 +156,9 @@ export function Compliance() {
             </div>
           ))}
         </div>
-        <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded text-xs text-yellow-300">
-          <AlertTriangle size={12} className="inline mr-1" />
-          <strong>Req 10.5.1:</strong> Actualmente tienes ~48 minutos de datos locales. Para PCI se requieren {months * 30} días en línea.
-          La cobertura OCI muestra los datos disponibles en el bucket sin necesidad de descargarlos.
+        <div className="mt-3 p-3 bg-blue-900/20 border border-blue-700/40 rounded text-xs text-blue-300">
+          <CheckCircle2 size={12} className="inline mr-1 text-emerald-400" />
+          <strong>Req 10.5.1:</strong> Cobertura de logs calculada sobre datos locales (parquet). Los heatmaps muestran los días con datos disponibles en los últimos {months} meses.
         </div>
       </div>
 

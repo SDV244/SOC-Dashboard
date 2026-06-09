@@ -1,14 +1,15 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTimeRange } from '../TimeRangeContext'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { api, toIso, type TimeRange } from '../lib/api'
+import { api, toIso } from '../lib/api'
 import { TimeRangeSelector } from '../components/TimeRangeSelector'
 
 export function SyslogUsers() {
-  const [range, setRange] = useState<TimeRange>('6M')
-  const { start, end } = useMemo(() => toIso(range), [range])
+  const { range, setRange, customStart, setCustomStart, customEnd, setCustomEnd } = useTimeRange()
+  const { start, end } = useMemo(() => toIso(range, customStart, customEnd), [range, customStart, customEnd])
 
   const syslog = useQuery({
     queryKey: ['syslogVolume', start, end],
@@ -29,7 +30,7 @@ export function SyslogUsers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Syslog / Usuarios / Assets</h1>
-        <TimeRangeSelector value={range} onChange={setRange} />
+        <TimeRangeSelector value={range} onChange={r => { setRange(r) }} customStart={customStart} customEnd={customEnd} onCustomChange={(s, e) => { setRange('custom'); setCustomStart(s); setCustomEnd(e) }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

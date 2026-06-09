@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTimeRange } from '../TimeRangeContext'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid,
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
-import { api, toIso, type TimeRange } from '../lib/api'
+import { api, toIso } from '../lib/api'
 import { TimeRangeSelector } from '../components/TimeRangeSelector'
 
 const MSG_CLASS_COLORS: Record<string, string> = {
@@ -15,8 +16,8 @@ const MSG_CLASS_COLORS: Record<string, string> = {
 }
 
 export function Alerts() {
-  const [range, setRange] = useState<TimeRange>('6M')
-  const { start, end } = useMemo(() => toIso(range), [range])
+  const { range, setRange, customStart, setCustomStart, customEnd, setCustomEnd } = useTimeRange()
+  const { start, end } = useMemo(() => toIso(range, customStart, customEnd), [range, customStart, customEnd])
 
   const timeline = useQuery({
     queryKey: ['alertsTimeline', start, end],
@@ -42,7 +43,7 @@ export function Alerts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Alertas (ADR)</h1>
-        <TimeRangeSelector value={range} onChange={setRange} />
+        <TimeRangeSelector value={range} onChange={r => { setRange(r) }} customStart={customStart} customEnd={customEnd} onCustomChange={(s, e) => { setRange('custom'); setCustomStart(s); setCustomEnd(e) }} />
       </div>
 
       <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">

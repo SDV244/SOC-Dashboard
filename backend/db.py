@@ -13,7 +13,7 @@ _db_path: str | None = None
 def setup_httpfs(conn: duckdb.DuckDBPyConnection) -> None:
     settings = get_settings()
     endpoint = settings.s3_endpoint.removeprefix("https://").removeprefix("http://")
-    tmp_dir = Path(settings.db_path).parent / "duckdb_tmp"
+    tmp_dir = Path('/data/parquet/duckdb_tmp')
     tmp_dir.mkdir(parents=True, exist_ok=True)
     conn.execute(f"SET temp_directory='{tmp_dir.as_posix()}';")
     conn.execute("INSTALL httpfs; LOAD httpfs;")

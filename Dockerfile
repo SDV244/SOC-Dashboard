@@ -36,7 +36,7 @@ WORKDIR /app
 
 # Python deps
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-dev --frozen
+RUN uv sync --no-dev --frozen && uv pip install httpx
 
 # App source
 COPY backend/ ./backend/

@@ -321,8 +321,13 @@ def convert_month(index: str, year: int, month: int) -> int:
     Path("/data/duckdb_tmp").mkdir(exist_ok=True)
 
     days = calendar.monthrange(year, month)[1]
+    from datetime import date as _date
+    _today = _date.today()
     tasks = []
     for day in range(1, days + 1):
+        # Never ingest the current calendar day — OCI data is incomplete until midnight
+        if year == _today.year and month == _today.month and day == _today.day:
+            continue
         dst_file = Path(dst_dir) / f"day={day:02d}.parquet"
         if not (dst_file.exists() and dst_file.stat().st_size > 0):
             tasks.append((index, year, month, day, dst_dir))

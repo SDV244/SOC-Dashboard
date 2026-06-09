@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Shield, ScrollText, Activity, Settings, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, Shield, ScrollText, Activity, Settings } from 'lucide-react'
 import { Dashboard } from './pages/Dashboard'
 import { Alerts } from './pages/Alerts'
 import { LogBrowser } from './pages/LogBrowser'
 import { SyslogUsers } from './pages/SyslogUsers'
-import { Compliance } from './pages/Compliance'
 import { Settings as SettingsPage } from './pages/Settings'
+import { TimeRangeProvider } from './TimeRangeContext'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } })
 
@@ -15,7 +15,6 @@ const NAV = [
   { to: '/alerts', icon: Shield, label: 'Alertas' },
   { to: '/syslog', icon: Activity, label: 'Syslog / Usuarios' },
   { to: '/logs', icon: ScrollText, label: 'Log Browser' },
-  { to: '/compliance', icon: ShieldCheck, label: 'PCI Compliance' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ]
 
@@ -56,19 +55,20 @@ export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
-        <div className="flex min-h-screen bg-gray-950 text-white">
-          <Sidebar />
-          <main className="flex-1 p-6 overflow-auto">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/syslog" element={<SyslogUsers />} />
-              <Route path="/logs" element={<LogBrowser />} />
-              <Route path="/compliance" element={<Compliance />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
-          </main>
-        </div>
+        <TimeRangeProvider>
+          <div className="flex min-h-screen bg-gray-950 text-white">
+            <Sidebar />
+            <main className="flex-1 p-6 overflow-auto">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/syslog" element={<SyslogUsers />} />
+                <Route path="/logs" element={<LogBrowser />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </main>
+          </div>
+        </TimeRangeProvider>
       </BrowserRouter>
     </QueryClientProvider>
   )

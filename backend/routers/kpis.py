@@ -40,8 +40,32 @@ def overview(
     start = start or _default_start()
     end = end or _default_end()
 
+    # Prefer daily_stats (pre-aggregated from parquets, survives re-ingestion)
+    conn = get_conn()
+    try:
+        _s = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        _e = datetime.fromisoformat(end.replace("Z", "+00:00"))
+        _ds = conn.execute(
+            "SELECT count(*), coalesce(sum(total),0), coalesce(sum(threat_high),0), "
+            "coalesce(sum(dga),0), coalesce(sum(tunneling),0) "
+            "FROM daily_stats WHERE index='adr' AND date >= ? AND date <= ?",
+            [_s.date().isoformat(), _e.date().isoformat()]
+        ).fetchone()
+        if _ds and _ds[0] > 0:
+            return {
+                "total_events": _ds[1],
+                "threat_score_high": _ds[2],
+                "dga_detections": _ds[3],
+                "tunneling_events": _ds[4],
+                "unique_external_ips": 0,
+                "by_index": {"adr": _ds[1]},
+                "time_range": {"min": start, "max": end},
+                "source": "daily_stats",
+            }
+    except Exception:
+        pass
+
     if has_local_data("adr", start, end):
-        conn = get_conn()
         total = conn.execute(
             "SELECT count(*) FROM logs WHERE ts BETWEEN ? AND ?", [start, end]
         ).fetchone()[0]

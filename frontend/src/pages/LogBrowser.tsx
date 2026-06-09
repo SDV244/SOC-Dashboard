@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useRef } from 'react'
+import { useTimeRange } from '../TimeRangeContext'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { ChevronDown, ChevronRight, Download, ShieldAlert, X, Search, Info } from 'lucide-react'
-import { api, toIso, type LogRow, type BrowseLogsParams, type TimeRange } from '../lib/api'
+import { api, toIso, type LogRow, type BrowseLogsParams } from '../lib/api'
 import { TimeRangeSelector } from '../components/TimeRangeSelector'
 import { NLSearchBar } from '../components/NLSearchBar'
 
@@ -223,9 +224,7 @@ function LogRowItem({ row }: { row: LogRow }) {
 
 export function LogBrowser() {
   const [page, setPage] = useState(1)
-  const [range, setRange] = useState<TimeRange>('7d')
-  const [customStart, setCustomStart] = useState('')
-  const [customEnd, setCustomEnd] = useState('')
+  const { range, setRange, customStart, setCustomStart, customEnd, setCustomEnd } = useTimeRange()
   const { start, end } = useMemo(() => toIso(range, customStart, customEnd), [range, customStart, customEnd])
 
   const [index, setIndex]               = useState('')
