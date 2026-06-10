@@ -19,9 +19,9 @@ from backend.config import get_settings
 from backend.db import get_conn, setup_httpfs
 
 # VM tiene 12GB RAM. 4 workers × 2GB = 8GB peak + ~2GB overhead = ~10GB total.
-_DAY_WORKERS = 4
+_DAY_WORKERS = 2
 _MEM_PER_WORKER = "2000MB"
-_DAY_TIMEOUT_S = 1800  # 30 min per day; prevents ADR-style infinite hangs
+_DAY_TIMEOUT_S = 5400  # 90 min per day — matches ADR actual download time
 
 _sync_lock = threading.Lock()
 _sync_state: dict = {"running": False, "progress": [], "error": None}
@@ -301,6 +301,12 @@ def _convert_day_task(args: tuple) -> tuple[int, int, str | None]:
         rows = conn.execute(f"SELECT count(*) FROM parquet_scan('{dst}')").fetchone()[0]
         return day, rows, None
     except Exception as e:
+        # Remove partial write so convert_month() retries next run
+        try:
+            if Path(dst).exists():
+                Path(dst).unlink()
+        except OSError:
+            pass
         return day, 0, str(e)[:200]
     finally:
         conn.close()
@@ -329,8 +335,22 @@ def convert_month(index: str, year: int, month: int) -> int:
         if year == _today.year and month == _today.month and day == _today.day:
             continue
         dst_file = Path(dst_dir) / f"day={day:02d}.parquet"
-        if not (dst_file.exists() and dst_file.stat().st_size > 0):
-            tasks.append((index, year, month, day, dst_dir))
+        if dst_file.exists() and dst_file.stat().st_size > 0:
+            # Current month: validate readability — failed writes leave large corrupt files
+            if year == _today.year and month == _today.month:
+                try:
+                    _c = duckdb.connect(":memory:")
+                    _c.execute(f"SELECT 1 FROM parquet_scan('{dst_file}') LIMIT 1")
+                    _c.close()
+                    continue  # valid, skip
+                except Exception:
+                    try:
+                        dst_file.unlink()  # delete corrupt, will re-ingest
+                    except OSError:
+                        pass
+            else:
+                continue  # historical month — trust size check
+        tasks.append((index, year, month, day, dst_dir))
     if not tasks:
         return 0
 
