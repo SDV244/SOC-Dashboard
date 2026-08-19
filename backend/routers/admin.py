@@ -93,13 +93,25 @@ def convert_specific_month(
     idx = idx_list or settings.indexes
 
     def _run() -> None:
+        import logging
+        log = logging.getLogger(__name__)
         for index in idx:
             try:
+                log.warning("convert-month DEBUG start %s %d-%02d", index, year, month)
                 rows = convert_month(index, year, month)
+                log.warning("convert-month DEBUG convert_month returned rows=%s for %s %d-%02d", rows, index, year, month)
                 mark_converted(index, year, month, rows)
-                compute_daily_stats(index, year, month)
             except Exception:
-                pass
+                log.exception(
+                    "convert-month convert_month failed for %s %d-%02d", index, year, month
+                )
+            try:
+                n = compute_daily_stats(index, year, month)
+                log.warning("convert-month DEBUG compute_daily_stats returned processed=%s for %s %d-%02d", n, index, year, month)
+            except Exception:
+                log.exception(
+                    "convert-month compute_daily_stats failed for %s %d-%02d", index, year, month
+                )
 
     threading.Thread(target=_run, daemon=True).start()
     return {"started": True, "year": year, "month": month, "indexes": idx}
