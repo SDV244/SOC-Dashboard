@@ -5,7 +5,7 @@ set -euo pipefail
 LOGFILE="/data/parquet/ingest_daily.log"
 PYTHON="/app/.venv/bin/python3"
 SCRIPT="/app/convert_adr_day.py"
-TIMEOUT=5400
+TIMEOUT=21600
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "$LOGFILE"; }
 

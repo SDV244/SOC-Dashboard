@@ -29,14 +29,19 @@ async def _nightly_refresh() -> None:
         if next_run <= now:
             next_run += timedelta(days=1)
         await asyncio.sleep((next_run - now).total_seconds())
-        refresh_current_months()
+        import logging as _log_nr
+        _nr_log = _log_nr.getLogger(__name__)
+        try:
+            refresh_current_months()
+        except Exception:
+            _nr_log.exception('_nightly_refresh: refresh_current_months failed')
         # Compute stats for any new days that arrived (skips already-computed dates)
         now2 = datetime.now(UTC)
         for index in get_settings().indexes:
             try:
                 compute_daily_stats(index, now2.year, now2.month)
             except Exception:
-                pass
+                _nr_log.exception('_nightly_refresh: compute_daily_stats failed for %s', index)
 
 
 @asynccontextmanager

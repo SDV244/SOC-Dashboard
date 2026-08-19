@@ -21,7 +21,7 @@ from backend.db import get_conn, setup_httpfs
 # VM tiene 12GB RAM. 4 workers × 2GB = 8GB peak + ~2GB overhead = ~10GB total.
 _DAY_WORKERS = 2
 _MEM_PER_WORKER = "2000MB"
-_DAY_TIMEOUT_S = 5400  # 90 min per day — matches ADR actual download time
+_DAY_TIMEOUT_S = 21600  # 6h — datos recientes toman ~2.5-3h
 
 _sync_lock = threading.Lock()
 _sync_state: dict = {"running": False, "progress": [], "error": None}
@@ -331,8 +331,8 @@ def convert_month(index: str, year: int, month: int) -> int:
     _today = _date.today()
     tasks = []
     for day in range(1, days + 1):
-        # Never ingest the current calendar day — OCI data is incomplete until midnight
-        if year == _today.year and month == _today.month and day == _today.day:
+        # Never ingest the current calendar day or future days — OCI data doesn't exist yet
+        if year == _today.year and month == _today.month and day >= _today.day:
             continue
         dst_file = Path(dst_dir) / f"day={day:02d}.parquet"
         if dst_file.exists() and dst_file.stat().st_size > 0:
@@ -343,13 +343,23 @@ def convert_month(index: str, year: int, month: int) -> int:
                     _c.execute(f"SELECT 1 FROM parquet_scan('{dst_file}') LIMIT 1")
                     _c.close()
                     continue  # valid, skip
-                except Exception:
+                except Exception as _ve:
+                    import logging as _log4
+                    _log4.getLogger(__name__).warning(
+                        "convert_month %s %d-%02d day=%02d: readability check failed: %r",
+                        index, year, month, day, _ve)
                     try:
                         dst_file.unlink()  # delete corrupt, will re-ingest
-                    except OSError:
-                        pass
+                    except OSError as _oe:
+                        _log4.getLogger(__name__).warning(
+                            "convert_month %s %d-%02d day=%02d: unlink failed: %r",
+                            index, year, month, day, _oe)
             else:
                 continue  # historical month — trust size check
+        # Skip if convert_adr_day.py is currently writing this day (hidden .tmp_ file)
+        tmp_file = Path(dst_dir) / f".tmp_day={day:02d}.parquet"
+        if tmp_file.exists() and tmp_file.stat().st_size > 0:
+            continue  # being written by ingest_daily.sh — don't compete
         tasks.append((index, year, month, day, dst_dir))
     if not tasks:
         return 0
@@ -446,6 +456,8 @@ def refresh_current_months(indexes: list[str] | None = None) -> bool:
     idx = indexes or settings.indexes
 
     def _run() -> None:
+        import logging as _log_rm
+        _rm_log = _log_rm.getLogger(__name__)
         for index in idx:
             try:
                 rows = convert_month(index, year, month)
@@ -453,7 +465,9 @@ def refresh_current_months(indexes: list[str] | None = None) -> bool:
                     mark_converted(index, year, month, rows)
                 compute_daily_stats(index, year, month)
             except Exception:
-                pass
+                _rm_log.exception(
+                    'refresh_current_months failed for %s %d-%02d', index, year, month
+                )
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
@@ -647,7 +661,10 @@ def compute_daily_stats(index: str, year: int, month: int, force: bool = False) 
             ])
             processed += 1
         except Exception:
-            pass
+            import logging as _log3
+            _log3.getLogger(__name__).exception(
+                "compute_daily_stats failed for %s %s", index, date_str
+            )
 
     return processed
 

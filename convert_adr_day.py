@@ -8,6 +8,7 @@ from pathlib import Path
 
 year, month, day = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
 dst = Path(f"/data/parquet/index=adr/year={year}/month={month:02d}/day={day:02d}.parquet")
+dst_tmp = dst.parent / f".tmp_{dst.name}"
 dst.parent.mkdir(parents=True, exist_ok=True)
 
 import duckdb
@@ -26,9 +27,11 @@ if dst.exists() and dst.stat().st_size > 0 and is_valid(dst):
     print(f"SKIP {dst.name}: already valid", flush=True)
     sys.exit(0)
 
-# Remove corrupt/incomplete file
+# Remove corrupt/incomplete destination and any leftover temp
 if dst.exists():
     dst.unlink()
+if dst_tmp.exists():
+    dst_tmp.unlink()
 
 sys.path.insert(0, "/app")
 from backend.config import get_settings
@@ -99,7 +102,7 @@ READ_COLS = """{
 
 conn = duckdb.connect(":memory:")
 setup_httpfs(conn)
-conn.execute("SET memory_limit='3500MB'")
+conn.execute("SET memory_limit='2500MB'")
 conn.execute("SET temp_directory='/data/duckdb_tmp'")
 
 try:
@@ -107,13 +110,22 @@ try:
         f"COPY (SELECT {SELECT_COLS} FROM read_json('{src}',"
         f" format='newline_delimited', compression='gzip',"
         f" ignore_errors=true, columns={READ_COLS}))"
-        f" TO '{dst}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 100000)"
+        f" TO '{dst_tmp}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 100000)"
     )
-    n = conn.execute("SELECT count(*) FROM parquet_scan('" + str(dst) + "')").fetchone()[0]
+    conn.close()
+    os.sync()
+    val = duckdb.connect(":memory:")
+    n = val.execute("SELECT count(*) FROM parquet_scan('" + str(dst_tmp) + "')").fetchone()[0]
+    val.close()
+    if n == 0:
+        raise Exception("0 rows written")
+    os.rename(str(dst_tmp), str(dst))
     print(f"OK {dst.name}: {n:,} rows", flush=True)
     sys.exit(0)
 except Exception as e:
     print(f"FAIL {dst.name}: {e}", flush=True)
-    if dst.exists():
-        dst.unlink()
+    try:
+        dst_tmp.unlink()
+    except OSError:
+        pass
     sys.exit(1)
